@@ -1,0 +1,246 @@
+import pygame
+import random
+from collections import deque
+import heapq
+
+# Pygame constants
+TILE_SIZE = 10
+FPS = 60
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+BLUE = (0, 0, 255)
+GREEN = (57, 255, 20)
+RED = (255, 0, 0)
+YELLOW = (255, 255, 0)
+GRAY = (128, 128, 128)
+
+# Directions
+directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+# Initialize Pygame
+pygame.init()
+
+# Heuristic function 
+
+def heuristic(a, b):
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+# start and end positions
+def find_positions(maze):
+    start = None
+    end = None
+    for i in range(len(maze)):
+        for j in range(len(maze[0])):
+            if maze[i][j] == 2:
+                start = (i, j)
+            elif maze[i][j] == 3:
+                end = (i, j)
+    return start, end
+
+# BFS algorithm 
+def bfs_solve(maze, screen):
+    start, end = find_positions(maze)
+    if not start or not end:
+        return "No start or end found!"
+    
+    rows, cols = len(maze), len(maze[0])
+    queue = deque([(start, [start])])  # current_position
+    visited = set()
+    visited.add(start)
+
+    while queue:
+        (x, y), path = queue.popleft()
+
+        # Visualize the current step
+        draw_maze(maze, screen, path=path, current=(x, y)) # draws the current path of maze
+        pygame.display.update() #updatets the pygame window 
+
+        if (x, y) == end:
+            return path #if the path is at end it will retuen the path
+        
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+
+            if 0 <= nx < rows and 0 <= ny < cols and (nx, ny) not in visited and maze[nx][ny] != 1:
+                queue.append(((nx, ny), path + [(nx, ny)]))
+                visited.add((nx, ny))
+
+        pygame.time.delay(50) # time delay 
+
+    return "No path found!" # if there is no path then it will writen "No path found"
+
+# DFS algorithm 
+def dfs_solve(maze, screen):
+    start, end = find_positions(maze)
+    if not start or not end:
+        return "No start or end found!"
+    
+    rows, cols = len(maze), len(maze[0])
+    stack = [(start, [start])]  # current_position
+    visited = set()
+    visited.add(start)
+
+    while stack:
+        (x, y), path = stack.pop()
+
+        # the current step
+        draw_maze(maze, screen, path=path, current=(x, y))
+        pygame.display.update()
+
+        if (x, y) == end:
+            return path
+
+        for dx, dy in directions:
+            nx, ny = x + dx, y + dy
+
+            if 0 <= nx < rows and 0 <= ny < cols and (nx, ny) not in visited and maze[nx][ny] != 1:
+                stack.append(((nx, ny), path + [(nx, ny)]))
+                visited.add((nx, ny))
+
+        pygame.time.delay(50)  # time delay
+
+    return "No path found!" #if there is no path then it will writen "No path found"
+
+#best first search Algorithm
+def best_first_search(maze, screen):
+    start, end = find_positions(maze)
+    if not start or not end:
+        return "No start or end found!"
+    
+    rows, cols = len(maze), len(maze[0])
+    open_set = []  # Priority queue for Best First Search
+    heapq.heappush(open_set, (heuristic(start, end), start))  # (heuristic_value, position)
+    
+    came_from = {}  # To reconstruct the path
+    visited = set()
+    
+    while open_set:
+        _, current = heapq.heappop(open_set)  # Get the node with the lowest heuristic value
+        
+        # the current step
+        draw_maze(maze, screen, path=list(came_from.keys()), current=current)
+        pygame.display.update()
+
+        if current == end:
+            # Reconstruct the path
+            path = []
+            while current in came_from:
+                path.append(current)
+                current = came_from[current]
+            path.reverse()  # Reverse the path to get it from start to end
+            return path
+
+        visited.add(current)
+
+        for dx, dy in directions:
+            neighbor = (current[0] + dx, current[1] + dy)
+
+            if 0 <= neighbor[0] < rows and 0 <= neighbor[1] < cols and maze[neighbor[0]][neighbor[1]] != 1:
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    heapq.heappush(open_set, (heuristic(neighbor, end), neighbor))
+                    came_from[neighbor] = current
+
+        pygame.time.delay(50)  # Add delay 
+
+    return "No path found!"  
+
+# Function to draw the maze
+def draw_maze(maze, screen, path=[], current=None):
+    screen.fill(WHITE)
+    rows, cols = len(maze), len(maze[0])
+
+    for i in range(rows):
+        for j in range(cols):
+            color = WHITE
+            if maze[i][j] == 1:
+                color = BLACK
+            elif maze[i][j] == 2:
+                color = GREEN  # Start
+            elif maze[i][j] == 3:
+                color = RED  # End
+            elif (i, j) == current:
+                color = BLUE  # Current position
+            elif (i, j) in path:
+                color = YELLOW  # Path being explored
+
+            pygame.draw.rect(screen, color, pygame.Rect(j * TILE_SIZE, i * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+    
+    pygame.display.flip()
+
+# generating maze
+def generate_maze(rows, cols):
+    maze = [[1 for _ in range(cols)] for _ in range(rows)]
+    visited = set()
+    stack = []
+
+    def get_neighbors(x, y):
+        neighbors = []
+        for dx, dy in directions:
+            nx, ny = x + 2 * dx, y + 2 * dy
+            if 0 <= nx < rows and 0 <= ny < cols and (nx, ny) not in visited:
+                neighbors.append((nx, ny))
+        return neighbors
+
+    start_x, start_y = random.randrange(1, rows, 2), random.randrange(1, cols, 2)
+    maze[start_x][start_y] = 0
+    visited.add((start_x, start_y))
+    stack.append((start_x, start_y))
+
+    while stack:
+        x, y = stack[-1]
+        neighbors = get_neighbors(x, y)
+
+        if neighbors:
+            nx, ny = random.choice(neighbors)
+            maze[(x + nx) // 2][(y + ny) // 2] = 0
+            maze[nx][ny] = 0
+            visited.add((nx, ny))
+            stack.append((nx, ny))
+        else:
+            stack.pop()
+
+    maze[start_x][start_y] = 2
+    while True:
+        end_x, end_y = random.randrange(1, rows, 2), random.randrange(1, cols, 2)
+        if (end_x, end_y) != (start_x, start_y) and maze[end_x][end_y] == 0:
+            maze[end_x][end_y] = 3
+            break
+
+    return maze
+
+def main():
+    rows, cols = 40, 40
+    maze = generate_maze(rows, cols)
+
+    screen_width = cols * TILE_SIZE
+    screen_height = rows * TILE_SIZE
+    screen = pygame.display.set_mode((screen_width, screen_height))
+    pygame.display.set_caption("Maze Solver")
+
+    clock = pygame.time.Clock()
+
+    running = True
+    while running:
+        screen.fill(WHITE)
+        draw_maze(maze, screen)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_b]:  # Press 'b' to start BFS
+            bfs_solve(maze, screen)
+        if keys[pygame.K_d]:  # Press 'd' to start DFS
+            dfs_solve(maze, screen)
+        if keys[pygame.K_h]:  # Press 'h' to start Best First Search
+            best_first_search(maze, screen)  
+
+        pygame.display.flip()
+        clock.tick(FPS)
+
+    pygame.quit()
+
+if _name_ == "_main_":
+    main()
